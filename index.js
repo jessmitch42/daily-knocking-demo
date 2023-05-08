@@ -5,13 +5,81 @@ const logEvent = (e) => console.log("Daily event: ", e);
 
 /**
  *
+ * FUNCTIONS TO TOGGLE DOM ELEMENT VISIBILITY
+ */
+
+const showOwnerPanel = () => {
+  // show the allow/deny buttons for anyone in the waiting room
+  const buttons = document.getElementById("ownerKnockingButtons");
+  buttons.classList.remove("hide");
+};
+
+const hideOwnerPanel = () => {
+  // hide the allow/deny buttons for anyone in the waiting room
+  const buttons = document.getElementById("ownerKnockingButtons");
+  buttons.classList.add("hide");
+};
+
+const showWaitingRoomText = () => {
+  // Show waiting room message after knocking
+  const guestKnockingMsg = document.getElementById("guestKnocking");
+  guestKnockingMsg.classList.remove("hide");
+};
+
+const hideWaitingRoomText = () => {
+  // Show waiting room message after knocking
+  const guestKnockingMsg = document.getElementById("guestKnocking");
+  guestKnockingMsg.classList.add("hide");
+};
+
+const showLoadingText = (type) => {
+  const id = type === "owner" ? "ownerLoading" : "guestLoading";
+  const loading = document.getElementById(id);
+  loading.classList.remove("hide");
+};
+
+const hideLoadingText = (type) => {
+  const id = type === "owner" ? "ownerLoading" : "guestLoading";
+  const loading = document.getElementById(id);
+  loading.classList.add("hide");
+};
+
+const showRejectedFromCallText = () => {
+  const guestDenied = document.getElementById("guestDenied");
+  guestDenied.classList.remove("hide");
+};
+
+const hideRejectedFromCallText = () => {
+  const guestDenied = document.getElementById("guestDenied");
+  guestDenied.classList.add("hide");
+};
+
+/**
+ *
  * OWNER-RELATED FUNCTIONS
  */
 
+// Handle onsubmit event for the owner form
+const submitOwnerForm = (e) => {
+  e.preventDefault();
+  // Do not try to create new call object if it already exists
+  if (callObject) return;
+  // Get form values
+  const name = e.target.name.value;
+  const url = e.target.url.value;
+  const token = e.target.token.value;
+  if (!name.trim() || !url.trim() || !token.trim()) {
+    console.error("Fill out form");
+    return;
+  }
+  // initialize the call object and let the owner join/enter the call
+  createOwnerCall({ name, url, token });
+};
+
 // The owner will go right into the call since they have appropriate permissions
 const createOwnerCall = async ({ name, url, token }) => {
-  const loading = document.getElementById("ownerLoading");
-  loading.classList.remove("hide");
+  showLoadingText("owner");
+
   // Create call object
   callObject = await window.DailyIframe.createCallObject();
   // Do *not* do this in production apps. This is to help debug in the browser console during development.
@@ -32,28 +100,20 @@ const createOwnerCall = async ({ name, url, token }) => {
 
   // Let owner join the meeting
   try {
-    await callObject.join({ userName: name, url, token });
-    loading.classList.add("hide");
-    // show the allow/deny buttons for anyone in the waiting room
-    const buttons = document.getElementById("ownerKnockingButtons");
-    buttons.classList.remove("hide");
+    const join = await callObject.join({ userName: name, url, token });
+
+    // confirm participant is an owner of the call (i.e. can respond to knocking)
+    if (join.local.owner !== true) {
+      console.error("This participant is not a meeting owner!");
+    } else {
+      console.log("This participant is a meeting owner! :)");
+    }
+    hideLoadingText("owner");
+    showOwnerPanel();
   } catch (error) {
     console.log("Owner join failed: ", error);
     loading.classList.add("hide");
   }
-};
-
-// Handle onsubmit event for the owner form
-const submitOwnerForm = (e) => {
-  e.preventDefault();
-  // Do not try to create new call object if it already exists
-  if (callObject) return;
-  // Get form values
-  const name = e.target.name.value;
-  const url = e.target.url.value;
-  const token = e.target.token.value;
-  // initialize the call object and let the owner join/enter the call
-  createOwnerCall({ name, url, token });
 };
 
 /**
@@ -61,16 +121,25 @@ const submitOwnerForm = (e) => {
  * GUEST-RELATED FUNCTIONS
  */
 
+const submitKnockingForm = (e) => {
+  e.preventDefault();
+  const name = e.target.name.value;
+  const url = e.target.url.value;
+  if (!name.trim() || !url.trim()) {
+    console.error("Fill out form");
+    return;
+  }
+  // if user is trying to join again, hide previous error
+  hideRejectedFromCallText();
+  // guests have separate method to initialize the call to show the differences more clearly.
+  // you could also have one form to join a call and determine if they're a guest/owner after.
+  createGuestCall({ name, url });
+};
+
 // This function will create the call object and "join" the call.
 // Joining for guests means going into the lobby and waiting for an owner to let them in.
 const createGuestCall = async ({ name, url }) => {
-  // show loading message
-  const loading = document.getElementById("guestLoading");
-  loading.classList.remove("hide");
-
-  // Show waiting room message after knocking
-  const guestKnockingMsg = document.getElementById("guestKnocking");
-  guestKnockingMsg.classList.remove("hide");
+  showLoadingText("guest");
 
   // Create call object
   callObject = await window.DailyIframe.createCallObject();
@@ -86,29 +155,31 @@ const createGuestCall = async ({ name, url }) => {
     .on("error", handleError)
     .on("access-state-updated", handleAccessStateUpdate);
 
-  // hide loading message
-  loading.classList.add("hide");
-
-  // Let guest preAuth, "join" the call (just the lobby in this case), and requestAccess (knock)
   try {
-    // We don't actually need to call preAuth, but if you wanted to make UI decisions based on their access level (guest or owner) before joining, the response will have the access level available.
+    // pre-authenticate guest to make sure they need to knock before calling join() method
     await callObject.preAuth({ userName: name, url });
-    // Join the call. If the participant is a guest, they will join the "lobby" access level and will need to knock to enter the actual call.
-    await callObject.join();
-    // Request full access to the call (i.e. knock to enter)
-    await callObject.requestAccess({ name });
-  } catch (error) {
-    console.log("Owner join failed: ", error);
-  }
-};
+    // check that the guest actually needs to knock
+    const permissions = await checkAccessLevel();
+    // if they're in the lobby, they need to knock
+    if (permissions === "lobby") {
+      // guests must call .join() before they can knock to enter the call
+      await callObject.join();
 
-const submitKnockingForm = (e) => {
-  e.preventDefault();
-  const name = e.target.name.value;
-  const url = e.target.url.value;
-  // guests have separate method to initialize the call to show the differences more clearly.
-  // you could also have one form to join a call and determine if they're a guest/owner after.
-  createGuestCall({ name, url });
+      hideLoadingText("guest");
+      showWaitingRoomText();
+
+      // Request full access to the call (i.e. knock to enter)
+      await callObject.requestAccess({ name });
+    } else if (permissions === "full") {
+      // if they can join the call, it's probably not a private room
+      console.error("participant does not need to knock.");
+      addParticipantVideo(join.local);
+    } else {
+      console.error("Something went wrong while joining.");
+    }
+  } catch (error) {
+    console.log("Guest knocking failed: ", error);
+  }
 };
 
 /**
@@ -116,15 +187,13 @@ const submitKnockingForm = (e) => {
  * VIDEO/EVENT-RELATED FUNCTIONS
  */
 
-const checkAccessLevel = async (e) => {
+const checkAccessLevel = async () => {
   const state = await callObject.accessState();
-
-  if (state.access.level === "lobby") {
-    // Note: since tracks are available here to build a "prejoin UI", we could use this condition to show a prejoin UI.
-    // that's not in the scope of this demo so we'll just return the access level in any case.
-    return state.access.level;
-  }
-  // access level could be full (allowed to join the call) or none.
+  /* access level could be:
+   - lobby (must knock to enter)
+   - full (allowed to join the call)
+   - none (can't join)
+  */
   return state.access.level;
 };
 
@@ -142,6 +211,7 @@ const handleJoinedMeeting = (e) => {
 const handleParticipantUpdate = async (e) => {
   const level = await checkAccessLevel();
   console.log("current level: ", level);
+
   if (level === "lobby") return;
   // In a complete video call app, you would listen for different updates (e.g. toggling video/audio).
   // For now, we'll just see if a video element exists for them and add it if not.
@@ -201,20 +271,30 @@ const handleAccessStateUpdate = (e) => {
     // add the participant's video (it will only be added if it doesn't already exist)
     const local = callObject.participants().local;
     addParticipantVideo(local);
-    // Hide knocking buttons now that they're in the call
-    const guestKnockingMsg = document.getElementById("guestKnocking");
-    guestKnockingMsg.classList.add("hide");
+    hideWaitingRoomText();
   } else {
     console.log(e);
   }
 };
 
-const leaveCall = () => {
+const leaveCall = async () => {
   if (callObject) {
     console.log("leaving call");
-    callObject.leave();
+    // clean up callObject so the demo can be used again
+    await callObject.leave();
+    await callObject.destroy();
+    callObject = null;
+
+    // remove all video elements
+    const videoEls = [...document.getElementsByTagName("video")];
+    videoEls.forEach((v) => v.remove());
+
+    // reset UI
+    hideOwnerPanel();
+    hideWaitingRoomText();
+    hideRejectedFromCallText();
+
     // todo: add .off() events: https://docs.daily.co/reference/rn-daily-js/instance-methods/off
-    // todo: remove video element from DOM
   } else {
     console.log("not in a call to leave");
   }
@@ -255,14 +335,9 @@ const denyAccess = () => {
 const handleError = (e) => {
   logEvent(e);
   // The request to join (knocking) was rejected :(
-  console.log(e.errorMsg);
   if (e.errorMsg === "Join request rejected") {
-    // hide knocking message
-    const guestKnockingMsg = document.getElementById("guestKnocking");
-    guestKnockingMsg.classList.add("hide");
-    // show rejected message
-    const guestDenied = document.getElementById("guestDenied");
-    guestDenied.classList.remove("hide");
+    hideWaitingRoomText();
+    showRejectedFromCallText();
   }
 };
 
@@ -279,7 +354,6 @@ const updateWaitingParticipant = (e) => {
   // get the li of the waiting participant who was removed from the list
   const id = e.participant.id;
   const li = document.getElementById(id);
-  console.log("remove li", li);
   // if the li exists, remove it from the list
   if (li) {
     li.remove();

@@ -23,6 +23,8 @@ curl -H "Content-Type: application/json" \
 
 ```
 
+**Note:** This demo app assumes cameras will be turned on by default when a participant joins. This is the default setting for new rooms. The [`start_video_off`](https://docs.daily.co/reference/rest-api/rooms/config#start_video_off) setting should be `false`.
+
 3. An owner meeting token, which you can create with the following cURL command:
 
 ```
@@ -33,7 +35,9 @@ curl -H "Content-Type: application/json" \
      https://api.daily.co/v1/meeting-tokens
 ```
 
-**Note:** Your API key and meeting token should be stored securely. Never hard-code them in your app or commit them to the version control history.
+**Note:** You must set the `is_owner` configuration to `true`. If you do not, you will be able to join the call but will not have owner privileges to respond to guests knocking.
+
+**Warning:** Your API key and meeting token should be stored securely. Never hard-code them in your app or commit them to the version control history.
 
 ## Run locally
 
@@ -55,7 +59,11 @@ Meeting owners can join private calls without knocking. When a guest knocks, own
 
 To join as a meeting owner, fill out the _Meeting owner form_ with your name, the Daily room URL, and your token.
 
+---
+
 ![Owner view when guest is knocking to enter](./assets/owner.png)
+
+---
 
 Once you join, you will see your video and a waiting room list. Guests that have knocked to join your call will show in the list. If there are guests awaiting, you can press the "Allow access" or "Deny guest access" buttons to let them in or reject them.
 
@@ -65,7 +73,11 @@ Guests can knock to join a private call when the [`enable_knocking`]() room sett
 
 To join as a guest, enter your name and the room URL in the _Guest form_. Do not join both forms in the same browser window. (Open a new tab for the Guest view.)
 
+---
+
 ![Guest view after knocking to enter](./assets/guest.png)
+
+---
 
 ## Additional resources
 
