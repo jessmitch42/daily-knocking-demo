@@ -78,7 +78,7 @@ const submitOwnerForm = (e) => {
 
 // The owner will go right into the call since they have appropriate permissions
 const createOwnerCall = async ({ name, url, token }) => {
-  showLoadingText();
+  showLoadingText("owner");
 
   // Create call object
   callObject = await window.DailyIframe.createCallObject();
@@ -161,7 +161,7 @@ const createGuestCall = async ({ name, url }) => {
     // check that the guest actually needs to knock
     const permissions = await checkAccessLevel();
     // if they're in the lobby, they need to knock
-    if (permissions?.access?.level === "lobby") {
+    if (permissions === "lobby") {
       // guests must call .join() before they can knock to enter the call
       await callObject.join();
 
@@ -170,7 +170,7 @@ const createGuestCall = async ({ name, url }) => {
 
       // Request full access to the call (i.e. knock to enter)
       await callObject.requestAccess({ name });
-    } else if (permissions?.access?.level === "full") {
+    } else if (permissions === "full") {
       // if they can join the call, it's probably not a private room
       console.error("participant does not need to knock.");
       addParticipantVideo(join.local);
