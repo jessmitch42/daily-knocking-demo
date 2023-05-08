@@ -51,6 +51,10 @@ npm install
 npm run start
 ```
 
+To test this as a owner and guest, have one window open for the owner and one window open for the guest.
+
+We recommend keeping your browser console open while testing to see any errors or events while they're happening.
+
 ## How to use this demo
 
 ### Join as a meeting owner
@@ -69,7 +73,7 @@ Once you join, you will see your video and a waiting room list. Guests that have
 
 ### Join as a guest
 
-Guests can knock to join a private call when the [`enable_knocking`]() room setting is enabled.
+Guests can knock to join a private call when the [`enable_knocking`](https://docs.daily.co/reference/rest-api/rooms/create-room#enable_knocking) room setting is enabled.
 
 To join as a guest, enter your name and the room URL in the _Guest form_. Do not join both forms in the same browser window. (Open a new tab for the Guest view.)
 
