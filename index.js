@@ -280,11 +280,20 @@ const handleAccessStateUpdate = (e) => {
 const leaveCall = async () => {
   if (callObject) {
     console.log("leaving call");
+    // clean up callObject so the demo can be used again
     await callObject.leave();
+    await callObject.destroy();
+    callObject = null;
+
     // remove all video elements
-    for (const vid of document.getElementsByTagName("video")) {
-      vid.remove();
-    }
+    const videoEls = [...document.getElementsByTagName("video")];
+    videoEls.forEach((v) => v.remove());
+
+    // reset UI
+    hideOwnerPanel();
+    hideWaitingRoomText();
+    hideRejectedFromCallText();
+
     // todo: add .off() events: https://docs.daily.co/reference/rn-daily-js/instance-methods/off
   } else {
     console.log("not in a call to leave");
@@ -326,7 +335,6 @@ const denyAccess = () => {
 const handleError = (e) => {
   logEvent(e);
   // The request to join (knocking) was rejected :(
-  console.log(e.errorMsg);
   if (e.errorMsg === "Join request rejected") {
     hideWaitingRoomText();
     showRejectedFromCallText();
