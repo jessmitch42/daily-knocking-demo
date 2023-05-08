@@ -4,6 +4,7 @@ This is a basic demo app to showcase how to add a knocking feature to a custom D
 
 This demo consists of one JavaScript, HTML, and CSS file to avoid the reader requiring knowledge of a specific front-end framework. However, it is common for Daily custom video call UIs to be built with a front-end framework (such as React) to help manage app state more easily.
 
+![Default view of owner and guest forms](./assets/default.png)
 ## Requirements
 
 To use this demo, you will need:
