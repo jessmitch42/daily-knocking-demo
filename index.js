@@ -82,8 +82,6 @@ const createOwnerCall = async ({ name, url, token }) => {
 
   // Create call object
   callObject = await window.DailyIframe.createCallObject();
-  // Do *not* do this in production apps. This is to help debug in the browser console during development.
-  window.callObject = callObject;
 
   // Add Daily event listeners (not an exhaustive list)
   // See: https://docs.daily.co/reference/daily-js/events
@@ -131,8 +129,7 @@ const submitKnockingForm = (e) => {
   }
   // if user is trying to join again, hide previous error
   hideRejectedFromCallText();
-  // guests have separate method to initialize the call to show the differences more clearly.
-  // you could also have one form to join a call and determine if they're a guest/owner after.
+  // initialize guest call so they can knock to enter
   createGuestCall({ name, url });
 };
 
@@ -160,6 +157,7 @@ const createGuestCall = async ({ name, url }) => {
     await callObject.preAuth({ userName: name, url });
     // check that the guest actually needs to knock
     const permissions = await checkAccessLevel();
+    console.log("access level: ", permissions);
     // if they're in the lobby, they need to knock
     if (permissions === "lobby") {
       // guests must call .join() before they can knock to enter the call
@@ -173,6 +171,8 @@ const createGuestCall = async ({ name, url }) => {
     } else if (permissions === "full") {
       // if they can join the call, it's probably not a private room
       console.error("participant does not need to knock.");
+      hideLoadingText("guest");
+      const join = await callObject.join();
       addParticipantVideo(join.local);
     } else {
       console.error("Something went wrong while joining.");
@@ -201,8 +201,9 @@ const handleJoinedMeeting = (e) => {
   const participant = e?.participants?.local;
   // this demo assumes videos are on when the call starts since there aren't controls in the UI.
   // update the room's settings to enable cameras by default.
+  // https://docs.daily.co/reference/rest-api/rooms/config#start_video_off
   if (!participant?.tracks?.video) {
-    console.log('enable "Cameras on start" for your room');
+    console.log('Video is off. Ensure "start_video_off" setting is false for your room');
     return;
   }
   addParticipantVideo(participant);
@@ -211,22 +212,25 @@ const handleJoinedMeeting = (e) => {
 const handleParticipantUpdate = async (e) => {
   const level = await checkAccessLevel();
   console.log("current level: ", level);
-
+  // don't use this event for participants who are waiting to join
   if (level === "lobby") return;
+
+  // don't use this event for the local participant
+  const participant = e?.participant;
+  if (!participant || participant.local) return;
+
   // In a complete video call app, you would listen for different updates (e.g. toggling video/audio).
   // For now, we'll just see if a video element exists for them and add it if not.
-  const participant = e?.participant;
   const vid = findVideoForParticipant(participant.session_id);
   if (!vid) {
-    // No video found for participant after update. Add one.
+    // No video found for remote participant after update. Add one.
     console.log("Adding new video");
     addParticipantVideo(participant);
   }
 };
 
 const handleParticipantLeft = (e) => {
-  // In a complete video call app, you would listen for different updates (e.g. toggling video/audio).
-  // For now, we'll just see if a video element exists for them and add it if not.
+  // remove the video element for participant who left
   const participant = e?.participant;
   const vid = findVideoForParticipant(participant.session_id);
   if (vid) {
@@ -235,6 +239,7 @@ const handleParticipantLeft = (e) => {
 };
 
 const addParticipantVideo = async (participant) => {
+  if (!participant) return;
   // if the participant is an owner, we'll put them up top; otherwise, in the guest container
   let videoContainer = document.getElementById(
     participant.owner ? "ownerVideo" : "guestVideo"
@@ -309,7 +314,8 @@ const allowAccess = () => {
   const waiting = callObject.waitingParticipants();
 
   const waitList = Object.keys(waiting);
-  // we'll let the whole list in but it's more common to let a single person in.
+  // We'll let the whole list in to keep this functionality simple.
+  // You could also add a button next to each name to let individual guests in and then have an "Accept all" and "Deny all" option to respond in one batch.
   waitList.forEach(async (id) => {
     await callObject.updateWaitingParticipant(id, {
       grantRequestedAccess: true,
@@ -320,11 +326,10 @@ const allowAccess = () => {
 
 const denyAccess = () => {
   console.log("deny guest access");
-  console.log("allow guest in");
   const waiting = callObject.waitingParticipants();
 
   const waitList = Object.keys(waiting);
-  // we'll let the whole list in but it's more common to let a single person in.
+  // we'll deny the whole list to keep the UI simple
   waitList.forEach(async (id) => {
     await callObject.updateWaitingParticipant(id, {
       grantRequestedAccess: false,
@@ -346,12 +351,14 @@ const addWaitingParticipant = (e) => {
   const li = document.createElement("li");
   li.setAttribute("id", e.participant.id);
   li.innerHTML = `${e.participant.name}: ${e.participant.id}`;
+  // add new list item to ul element
   list.appendChild(li);
 };
 
 const updateWaitingParticipant = (e) => {
   logEvent(e);
   // get the li of the waiting participant who was removed from the list
+  // They would be "removed" whether they were accepted or rejected -- they're just not waiting anymore.
   const id = e.participant.id;
   const li = document.getElementById(id);
   // if the li exists, remove it from the list
