@@ -21,13 +21,13 @@
             <h2>Meeting owner form</h2>
             <form id="ownerForm">
               <label for="name">Your name</label>
-              <input type="text" id="name" value="owner" />
+              <input type="text" id="name" value="owner" required />
               <br />
               <label for="url">Daily room URL</label>
-              <input type="text" id="url" />
+              <input type="text" id="url" required />
               <br />
               <label for="token">Owner token</label>
-              <input type="text" id="token" />
+              <input type="text" id="token" required />
               <br />
               <input type="submit" value="Join call" />
             </form>
@@ -56,12 +56,12 @@
             <h2>Guest form</h2>
             <form id="knockingForm">
               <label for="name">Your name</label>
-              <input type="text" id="name" value="guest" />
+              <input type="text" id="name" value="guest" required />
               <br />
               <label for="url">Daily room URL</label>
               <input type="text" id="url" />
               <br />
-              <input type="submit" value="Knock to enter call" />
+              <input type="submit" value="Knock to enter call" required />
             </form>
           </div>
           <div class="video-container">

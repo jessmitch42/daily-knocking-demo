@@ -52,6 +52,10 @@ const submitOwnerForm = (e) => {
   const name = e.target.name.value;
   const url = e.target.url.value;
   const token = e.target.token.value;
+  if (!name.trim() || !url.trim() || !token.trim()) {
+    console.error("Fill out form");
+    return;
+  }
   // initialize the call object and let the owner join/enter the call
   createOwnerCall({ name, url, token });
 };
@@ -68,10 +72,6 @@ const createGuestCall = async ({ name, url }) => {
   const loading = document.getElementById("guestLoading");
   loading.classList.remove("hide");
 
-  // Show waiting room message after knocking
-  const guestKnockingMsg = document.getElementById("guestKnocking");
-  guestKnockingMsg.classList.remove("hide");
-
   // Create call object
   callObject = await window.DailyIframe.createCallObject();
 
@@ -86,19 +86,25 @@ const createGuestCall = async ({ name, url }) => {
     .on("error", handleError)
     .on("access-state-updated", handleAccessStateUpdate);
 
-  // hide loading message
-  loading.classList.add("hide");
-
   // Let guest preAuth, "join" the call (just the lobby in this case), and requestAccess (knock)
   try {
     // We don't actually need to call preAuth, but if you wanted to make UI decisions based on their access level (guest or owner) before joining, the response will have the access level available.
     await callObject.preAuth({ userName: name, url });
     // Join the call. If the participant is a guest, they will join the "lobby" access level and will need to knock to enter the actual call.
-    await callObject.join();
+    const p = await callObject.join();
+    console.log(p);
+    const accessLevel = await p.accessState();
+    console.log(accessLevel);
     // Request full access to the call (i.e. knock to enter)
     await callObject.requestAccess({ name });
+
+    // Show waiting room message after knocking
+    const guestKnockingMsg = document.getElementById("guestKnocking");
+    guestKnockingMsg.classList.remove("hide");
+    // hide loading message
+    loading.classList.add("hide");
   } catch (error) {
-    console.log("Owner join failed: ", error);
+    console.log("Guest knocking failed: ", error);
   }
 };
 
@@ -106,6 +112,10 @@ const submitKnockingForm = (e) => {
   e.preventDefault();
   const name = e.target.name.value;
   const url = e.target.url.value;
+  if (!name.trim() || !url.trim()) {
+    console.error("Fill out form");
+    return;
+  }
   // guests have separate method to initialize the call to show the differences more clearly.
   // you could also have one form to join a call and determine if they're a guest/owner after.
   createGuestCall({ name, url });
