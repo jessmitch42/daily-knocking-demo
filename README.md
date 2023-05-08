@@ -1,6 +1,6 @@
 # Daily knocking demo
 
-This is a basic demo app to showcase how to add a knocking feature to a custom Daily app built with [Daily’s client SDK for JavaScript](https://www.daily.co/products/video-sdk/). The knocking feature is the main focus, which means it does **not** include most of the events and methods required for a production-level video call, such as video and audio controls.
+This is a basic demo app to showcase how to add a knocking feature to a custom Daily app built with [Daily’s client SDK for JavaScript](https://www.daily.co/products/video-sdk/). The knocking feature is the main focus, which means it does **not** include most of the events and methods required for a production-level video call, such as video and audio controls for call participants.
 
 This demo consists of one JavaScript, HTML, and CSS file to avoid the reader requiring knowledge of a specific front-end framework. However, it is common for Daily custom video call UIs to be built with a front-end framework (such as React) to help manage app state more easily.
 
