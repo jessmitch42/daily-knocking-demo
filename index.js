@@ -88,21 +88,30 @@ const createGuestCall = async ({ name, url }) => {
 
   // Let guest preAuth, "join" the call (just the lobby in this case), and requestAccess (knock)
   try {
-    // We don't actually need to call preAuth, but if you wanted to make UI decisions based on their access level (guest or owner) before joining, the response will have the access level available.
+    // pre-authenticate guest to make sure they need to knock before calling join() method
     await callObject.preAuth({ userName: name, url });
-    // Join the call. If the participant is a guest, they will join the "lobby" access level and will need to knock to enter the actual call.
-    const p = await callObject.join();
-    console.log(p);
-    const accessLevel = await p.accessState();
-    console.log(accessLevel);
-    // Request full access to the call (i.e. knock to enter)
-    await callObject.requestAccess({ name });
+    // check that the guest actually needs to knock
+    const permissions = await callObject.accessState();
+    // if they can't join the call, knock
+    if (permissions?.access?.level === "lobby") {
+      // Join the call. If the participant is a guest, they will join the "lobby" access level and will need to knock to enter the actual call.
+      await callObject.join();
 
-    // Show waiting room message after knocking
-    const guestKnockingMsg = document.getElementById("guestKnocking");
-    guestKnockingMsg.classList.remove("hide");
-    // hide loading message
-    loading.classList.add("hide");
+      // hide loading message
+      loading.classList.add("hide");
+      // Show waiting room message after knocking
+      const guestKnockingMsg = document.getElementById("guestKnocking");
+      guestKnockingMsg.classList.remove("hide");
+
+      // Request full access to the call (i.e. knock to enter)
+      await callObject.requestAccess({ name });
+    } else if (permissions?.access?.level === "full") {
+      // if they can join the call, it's probably not a private room
+      console.log("participant does not need to knock.");
+      addParticipantVideo(join.local);
+    } else {
+      console.error("Something went wrong while joining.");
+    }
   } catch (error) {
     console.log("Guest knocking failed: ", error);
   }
