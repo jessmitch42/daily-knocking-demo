@@ -160,7 +160,6 @@ const createGuestCall = async ({ name, url }) => {
     console.log("access level: ", permissions);
     // if they're in the lobby, they need to knock
     if (permissions === "lobby") {
-      console.log("innn");
       // guests must call .join() before they can knock to enter the call
       await callObject.join();
 
