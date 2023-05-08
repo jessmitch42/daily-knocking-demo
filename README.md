@@ -63,7 +63,7 @@ Once you join, you will see your video and a waiting room list. Guests that have
 
 Guests can knock to join a private call when the [`enable_knocking`]() room setting is enabled.
 
-To join as a guest, enter your name and the room URL in the _Guest form_.
+To join as a guest, enter your name and the room URL in the _Guest form_. Do not join both forms in the same browser window. (Open a new tab for the Guest view.)
 
 ![Guest view after knocking to enter](./assets/guest.png)
 
