@@ -378,6 +378,7 @@ const handleError = (e) => {
     // Update UI so the guest knows their request was denied
     hideWaitingRoomText();
     showRejectedFromCallText();
+    leaveCall();
   }
 };
 
