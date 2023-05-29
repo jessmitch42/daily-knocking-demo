@@ -1,3 +1,4 @@
+// https://docs.daily.co/reference/daily-js/daily-iframe-class
 let callObject;
 
 // Log events as they are triggered to see what's happening throughout the call
@@ -9,13 +10,13 @@ const logEvent = (e) => console.log("Daily event: ", e);
  */
 
 const showOwnerPanel = () => {
-  // show the allow/deny buttons for anyone in the waiting room
+  // Show the allow/deny buttons for anyone in the waiting room
   const buttons = document.getElementById("ownerKnockingButtons");
   buttons.classList.remove("hide");
 };
 
 const hideOwnerPanel = () => {
-  // hide the allow/deny buttons for anyone in the waiting room
+  // Hide the allow/deny buttons for anyone in the waiting room
   const buttons = document.getElementById("ownerKnockingButtons");
   buttons.classList.add("hide");
 };
@@ -33,23 +34,27 @@ const hideWaitingRoomText = () => {
 };
 
 const showLoadingText = (type) => {
+  // Show loading text when a participant is joining/knocking
   const id = type === "owner" ? "ownerLoading" : "guestLoading";
   const loading = document.getElementById(id);
   loading.classList.remove("hide");
 };
 
 const hideLoadingText = (type) => {
+  // Hide loading text in UI
   const id = type === "owner" ? "ownerLoading" : "guestLoading";
   const loading = document.getElementById(id);
   loading.classList.add("hide");
 };
 
 const showRejectedFromCallText = () => {
+  // Show message a knocking request was denied
   const guestDenied = document.getElementById("guestDenied");
   guestDenied.classList.remove("hide");
 };
 
 const hideRejectedFromCallText = () => {
+  // Hide message a knocking request was denied
   const guestDenied = document.getElementById("guestDenied");
   guestDenied.classList.add("hide");
 };
@@ -68,12 +73,26 @@ const submitOwnerForm = (e) => {
   const name = e.target.name.value;
   const url = e.target.url.value;
   const token = e.target.token.value;
+  // Log error if any form input is empty
   if (!name.trim() || !url.trim() || !token.trim()) {
     console.error("Fill out form");
     return;
   }
-  // initialize the call object and let the owner join/enter the call
+  // Initialize the call object and let the owner join/enter the call
   createOwnerCall({ name, url, token });
+};
+
+const addOwnerEvents = () => {
+  callObject
+    .on("joined-meeting", handleJoinedMeeting)
+    .on("left-meeting", logEvent)
+    .on("participant-joined", logEvent)
+    .on("participant-updated", handleParticipantUpdate)
+    .on("participant-left", handleParticipantLeft)
+    .on("waiting-participant-added", addWaitingParticipant)
+    .on("waiting-participant-updated", logEvent)
+    .on("waiting-participant-removed", updateWaitingParticipant)
+    .on("error", logEvent);
 };
 
 // The owner will go right into the call since they have appropriate permissions
@@ -85,27 +104,20 @@ const createOwnerCall = async ({ name, url, token }) => {
 
   // Add Daily event listeners (not an exhaustive list)
   // See: https://docs.daily.co/reference/daily-js/events
-  callObject
-    .on("joined-meeting", handleJoinedMeeting)
-    .on("left-meeting", logEvent)
-    .on("participant-joined", logEvent)
-    .on("participant-updated", handleParticipantUpdate)
-    .on("participant-left", handleParticipantLeft)
-    .on("waiting-participant-added", addWaitingParticipant)
-    .on("waiting-participant-updated", logEvent)
-    .on("waiting-participant-removed", updateWaitingParticipant)
-    .on("error", logEvent);
+  addOwnerEvents();
 
   // Let owner join the meeting
   try {
     const join = await callObject.join({ userName: name, url, token });
 
-    // confirm participant is an owner of the call (i.e. can respond to knocking)
+    // Confirm the participant is an owner of the call (i.e. can respond to knocking)
     if (join.local.owner !== true) {
       console.error("This participant is not a meeting owner!");
     } else {
       console.log("This participant is a meeting owner! :)");
     }
+
+    // Update UI after call is joined
     hideLoadingText("owner");
     showOwnerPanel();
   } catch (error) {
@@ -121,16 +133,33 @@ const createOwnerCall = async ({ name, url, token }) => {
 
 const submitKnockingForm = (e) => {
   e.preventDefault();
+
+  // Get form values
   const name = e.target.name.value;
   const url = e.target.url.value;
+
+  // Log error if either form input is empty
   if (!name.trim() || !url.trim()) {
     console.error("Fill out form");
     return;
   }
-  // if user is trying to join again, hide previous error
+
+  // If the user is trying to join after a failed attempt, hide the previous error message
   hideRejectedFromCallText();
-  // initialize guest call so they can knock to enter
+
+  // Initialize guest call so they can knock to enter
   createGuestCall({ name, url });
+};
+
+const addGuestEvents = () => {
+  callObject
+    .on("joined-meeting", checkAccessLevel)
+    .on("left-meeting", logEvent)
+    .on("participant-joined", logEvent)
+    .on("participant-updated", handleParticipantUpdate)
+    .on("participant-left", handleParticipantLeft)
+    .on("error", handleError)
+    .on("access-state-updated", handleAccessStateUpdate);
 };
 
 // This function will create the call object and "join" the call.
@@ -143,37 +172,36 @@ const createGuestCall = async ({ name, url }) => {
 
   // Add Daily event listeners (not an exhaustive list)
   // See: https://docs.daily.co/reference/daily-js/events
-  callObject
-    .on("joined-meeting", checkAccessLevel)
-    .on("left-meeting", logEvent)
-    .on("participant-joined", logEvent)
-    .on("participant-updated", handleParticipantUpdate)
-    .on("participant-left", handleParticipantLeft)
-    .on("error", handleError)
-    .on("access-state-updated", handleAccessStateUpdate);
+  addGuestEvents();
 
   try {
-    // pre-authenticate guest to make sure they need to knock before calling join() method
+    // Pre-authenticate the guest so we can confirm they need to knock before calling join() method
     await callObject.preAuth({ userName: name, url });
-    // check that the guest actually needs to knock
+
+    // Confirm that the guest actually needs to knock
     const permissions = await checkAccessLevel();
     console.log("access level: ", permissions);
-    // if they're in the lobby, they need to knock
+
+    // If they're in the lobby, they need to knock
     if (permissions === "lobby") {
-      // guests must call .join() before they can knock to enter the call
+      // Guests must call .join() before they can knock to enter the call
       await callObject.join();
 
+      // Update UI to show they're now in the waiting room
       hideLoadingText("guest");
       showWaitingRoomText();
 
       // Request full access to the call (i.e. knock to enter)
       await callObject.requestAccess({ name });
     } else if (permissions === "full") {
-      // if they can join the call, it's probably not a private room
-      console.error("participant does not need to knock.");
+      // If the guest can join the call, it's probably not a private room.
+      console.error(
+        "Participant does not need to knock. Please review the README instructions."
+      );
+      // Update UI
       hideLoadingText("guest");
-      const join = await callObject.join();
-      addParticipantVideo(join.local);
+      // Join the call
+      await callObject.join();
     } else {
       console.error("Something went wrong while joining.");
     }
@@ -188,8 +216,9 @@ const createGuestCall = async ({ name, url }) => {
  */
 
 const checkAccessLevel = async () => {
+  // https://docs.daily.co/reference/daily-js/instance-methods/access-state
   const state = await callObject.accessState();
-  /* access level could be:
+  /* Access level could be:
    - lobby (must knock to enter)
    - full (allowed to join the call)
    - none (can't join)
@@ -199,11 +228,13 @@ const checkAccessLevel = async () => {
 
 const handleJoinedMeeting = (e) => {
   const participant = e?.participants?.local;
-  // this demo assumes videos are on when the call starts since there aren't controls in the UI.
-  // update the room's settings to enable cameras by default.
-  // https://docs.daily.co/reference/rest-api/rooms/config#start_video_off
+  // This demo assumes videos are on when the call starts since there aren't media controls in the UI.
   if (!participant?.tracks?.video) {
-    console.log('Video is off. Ensure "start_video_off" setting is false for your room');
+    // Update the room's settings to enable cameras by default.
+    // https://docs.daily.co/reference/rest-api/rooms/config#start_video_off
+    console.error(
+      'Video is off. Ensure "start_video_off" setting is false for your room'
+    );
     return;
   }
   addParticipantVideo(participant);
@@ -212,14 +243,14 @@ const handleJoinedMeeting = (e) => {
 const handleParticipantUpdate = async (e) => {
   const level = await checkAccessLevel();
   console.log("current level: ", level);
-  // don't use this event for participants who are waiting to join
+  // Don't use this event for participants who are waiting to join
   if (level === "lobby") return;
 
-  // don't use this event for the local participant
+  // Don't use this event for the local participant
   const participant = e?.participant;
   if (!participant || participant.local) return;
 
-  // In a complete video call app, you would listen for different updates (e.g. toggling video/audio).
+  // In a complete video call app, you would listen for different remote participant updates (e.g. toggling video/audio).
   // For now, we'll just see if a video element exists for them and add it if not.
   const vid = findVideoForParticipant(participant.session_id);
   if (!vid) {
@@ -230,7 +261,7 @@ const handleParticipantUpdate = async (e) => {
 };
 
 const handleParticipantLeft = (e) => {
-  // remove the video element for participant who left
+  // Remove the video element for a participant who left
   const participant = e?.participant;
   const vid = findVideoForParticipant(participant.session_id);
   if (vid) {
@@ -240,29 +271,30 @@ const handleParticipantLeft = (e) => {
 
 const addParticipantVideo = async (participant) => {
   if (!participant) return;
-  // if the participant is an owner, we'll put them up top; otherwise, in the guest container
+  // If the participant is an owner, we'll put them up top; otherwise, in the guest container
   let videoContainer = document.getElementById(
     participant.owner ? "ownerVideo" : "guestVideo"
   );
 
   let vid = findVideoForParticipant(participant.session_id);
+  // Only add the video if it's not already in the UI
   if (!vid && participant.video) {
-    // create video element, set attributes
+    // Create video element, set attributes
     vid = document.createElement("video");
     vid.session_id = participant.session_id;
     vid.style.width = "100%";
     vid.autoplay = true;
     vid.muted = true;
     vid.playsInline = true;
-    // append to container (either guest or owner section)
+    // Append video to container (either guest or owner section)
     videoContainer.appendChild(vid);
-    // set video track
+    // Set video track
     vid.srcObject = new MediaStream([participant.tracks.video.persistentTrack]);
   }
 };
 
 const findVideoForParticipant = (session_id) => {
-  // find the video element with a session id that matches
+  // Find the video element with a session id that matches
   for (const vid of document.getElementsByTagName("video")) {
     if (vid.session_id === session_id) {
       return vid;
@@ -271,35 +303,36 @@ const findVideoForParticipant = (session_id) => {
 };
 
 const handleAccessStateUpdate = (e) => {
-  // if the access level has changed to full, the knocking participant has been let in.
+  // If the access level has changed to full, the knocking participant has been let in.
   if (e.access.level === "full") {
-    // add the participant's video (it will only be added if it doesn't already exist)
+    // Add the participant's video (it will only be added if it doesn't already exist)
     const local = callObject.participants().local;
     addParticipantVideo(local);
+    // Update messaging in UI
     hideWaitingRoomText();
   } else {
-    console.log(e);
+    logEvent(e);
   }
 };
 
 const leaveCall = async () => {
   if (callObject) {
     console.log("leaving call");
-    // clean up callObject so the demo can be used again
+    // Clean up callObject so the demo can be used again
     await callObject.leave();
     await callObject.destroy();
     callObject = null;
 
-    // remove all video elements
+    // Remove all video elements
     const videoEls = [...document.getElementsByTagName("video")];
     videoEls.forEach((v) => v.remove());
 
-    // reset UI
+    // Reset UI messaging
     hideOwnerPanel();
     hideWaitingRoomText();
     hideRejectedFromCallText();
 
-    // todo: add .off() events: https://docs.daily.co/reference/rn-daily-js/instance-methods/off
+    // Todo: add .off() events: https://docs.daily.co/reference/rn-daily-js/instance-methods/off
   } else {
     console.log("not in a call to leave");
   }
@@ -311,6 +344,7 @@ const leaveCall = async () => {
  */
 const allowAccess = () => {
   console.log("allow guest in");
+  // Retrieve list of waiting participants
   const waiting = callObject.waitingParticipants();
 
   const waitList = Object.keys(waiting);
@@ -329,7 +363,7 @@ const denyAccess = () => {
   const waiting = callObject.waitingParticipants();
 
   const waitList = Object.keys(waiting);
-  // we'll deny the whole list to keep the UI simple
+  // We'll deny the whole list to keep the UI simple
   waitList.forEach(async (id) => {
     await callObject.updateWaitingParticipant(id, {
       grantRequestedAccess: false,
@@ -341,6 +375,7 @@ const handleError = (e) => {
   logEvent(e);
   // The request to join (knocking) was rejected :(
   if (e.errorMsg === "Join request rejected") {
+    // Update UI so the guest knows their request was denied
     hideWaitingRoomText();
     showRejectedFromCallText();
   }
@@ -351,17 +386,17 @@ const addWaitingParticipant = (e) => {
   const li = document.createElement("li");
   li.setAttribute("id", e.participant.id);
   li.innerHTML = `${e.participant.name}: ${e.participant.id}`;
-  // add new list item to ul element
+  // Add new list item to ul element for owner to see
   list.appendChild(li);
 };
 
 const updateWaitingParticipant = (e) => {
   logEvent(e);
-  // get the li of the waiting participant who was removed from the list
+  // Get the li of the waiting participant who was removed from the list
   // They would be "removed" whether they were accepted or rejected -- they're just not waiting anymore.
   const id = e.participant.id;
   const li = document.getElementById(id);
-  // if the li exists, remove it from the list
+  // If the li exists, remove it from the list
   if (li) {
     li.remove();
   }
