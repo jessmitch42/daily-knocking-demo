@@ -76,15 +76,7 @@ const submitOwnerForm = (e) => {
   createOwnerCall({ name, url, token });
 };
 
-// The owner will go right into the call since they have appropriate permissions
-const createOwnerCall = async ({ name, url, token }) => {
-  showLoadingText("owner");
-
-  // Create call object
-  callObject = await window.DailyIframe.createCallObject();
-
-  // Add Daily event listeners (not an exhaustive list)
-  // See: https://docs.daily.co/reference/daily-js/events
+const addOwnerEvent = () => {
   callObject
     .on("joined-meeting", handleJoinedMeeting)
     .on("left-meeting", logEvent)
@@ -95,6 +87,18 @@ const createOwnerCall = async ({ name, url, token }) => {
     .on("waiting-participant-updated", logEvent)
     .on("waiting-participant-removed", updateWaitingParticipant)
     .on("error", logEvent);
+};
+
+// The owner will go right into the call since they have appropriate permissions
+const createOwnerCall = async ({ name, url, token }) => {
+  showLoadingText("owner");
+
+  // Create call object
+  callObject = await window.DailyIframe.createCallObject();
+
+  // Add Daily event listeners (not an exhaustive list)
+  // See: https://docs.daily.co/reference/daily-js/events
+  addOwnerEvents();
 
   // Let owner join the meeting
   try {
@@ -106,6 +110,7 @@ const createOwnerCall = async ({ name, url, token }) => {
     } else {
       console.log("This participant is a meeting owner! :)");
     }
+    // update UI
     hideLoadingText("owner");
     showOwnerPanel();
   } catch (error) {
@@ -121,16 +126,30 @@ const createOwnerCall = async ({ name, url, token }) => {
 
 const submitKnockingForm = (e) => {
   e.preventDefault();
+
   const name = e.target.name.value;
   const url = e.target.url.value;
+
   if (!name.trim() || !url.trim()) {
     console.error("Fill out form");
     return;
   }
   // if user is trying to join again, hide previous error
   hideRejectedFromCallText();
+
   // initialize guest call so they can knock to enter
   createGuestCall({ name, url });
+};
+
+const addGuestEvent = () => {
+  callObject
+    .on("joined-meeting", checkAccessLevel)
+    .on("left-meeting", logEvent)
+    .on("participant-joined", logEvent)
+    .on("participant-updated", handleParticipantUpdate)
+    .on("participant-left", handleParticipantLeft)
+    .on("error", handleError)
+    .on("access-state-updated", handleAccessStateUpdate);
 };
 
 // This function will create the call object and "join" the call.
@@ -143,14 +162,7 @@ const createGuestCall = async ({ name, url }) => {
 
   // Add Daily event listeners (not an exhaustive list)
   // See: https://docs.daily.co/reference/daily-js/events
-  callObject
-    .on("joined-meeting", checkAccessLevel)
-    .on("left-meeting", logEvent)
-    .on("participant-joined", logEvent)
-    .on("participant-updated", handleParticipantUpdate)
-    .on("participant-left", handleParticipantLeft)
-    .on("error", handleError)
-    .on("access-state-updated", handleAccessStateUpdate);
+  addGuestEvents();
 
   try {
     // pre-authenticate guest to make sure they need to knock before calling join() method
@@ -163,6 +175,7 @@ const createGuestCall = async ({ name, url }) => {
       // guests must call .join() before they can knock to enter the call
       await callObject.join();
 
+      // update UI
       hideLoadingText("guest");
       showWaitingRoomText();
 
@@ -171,9 +184,10 @@ const createGuestCall = async ({ name, url }) => {
     } else if (permissions === "full") {
       // if they can join the call, it's probably not a private room
       console.error("participant does not need to knock.");
+      // update UI
       hideLoadingText("guest");
-      const join = await callObject.join();
-      addParticipantVideo(join.local);
+      // Join the call
+      await callObject.join();
     } else {
       console.error("Something went wrong while joining.");
     }
@@ -203,7 +217,9 @@ const handleJoinedMeeting = (e) => {
   // update the room's settings to enable cameras by default.
   // https://docs.daily.co/reference/rest-api/rooms/config#start_video_off
   if (!participant?.tracks?.video) {
-    console.log('Video is off. Ensure "start_video_off" setting is false for your room');
+    console.log(
+      'Video is off. Ensure "start_video_off" setting is false for your room'
+    );
     return;
   }
   addParticipantVideo(participant);
