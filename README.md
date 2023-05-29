@@ -2,14 +2,15 @@
 
 This is a basic demo app to showcase how to add a knocking feature to a custom Daily app built with [Daily’s client SDK for JavaScript](https://www.daily.co/products/video-sdk/). The knocking feature is the main focus, which means it does **not** include most of the events and methods required for a production-level video call, such as video and audio controls for call participants.
 
-This demo consists of one JavaScript, HTML, and CSS file to avoid the reader requiring knowledge of a specific front-end framework. However, it is common for Daily custom video call UIs to be built with a front-end framework (such as React) to help manage app state more easily.
+This demo consists of one plain JavaScript, HTML, and CSS file, so the reader does not need knowledge of a specific front-end framework to understand how knocking works here. However, please note that it is common for Daily custom video call UIs to be built with a front-end framework (such as React or Next.js) to help manage app state more easily.
 
 ![Default view of owner and guest forms](./assets/default.png)
+
 ## Requirements
 
 To use this demo, you will need:
 
-1. A Daily account to create rooms and tokens. (There is a free tier.) https://dashboard.daily.co/signup
+1. A Daily account to create rooms and tokens. (Daily accounts are free to sign up and can be upgraded as needed.) https://dashboard.daily.co/signup
 2. A private Daily room with [knocking](https://docs.daily.co/reference/rest-api/rooms/create-room#enable_knocking) enabled, which you can create in the [dashboard](https://dashboard.daily.co/rooms/create) or via the Daily REST API with the following cURL command. (Don't forget to replace `$DAILY_API_KEY` with your API key, found in the [dashboard](https://dashboard.daily.co/developers).)
 
 ```
@@ -40,7 +41,7 @@ curl -H "Content-Type: application/json" \
 
 **Warning:** Your API key and meeting token should be stored securely. Never hard-code them in your app or commit them to the version control history.
 
-## Run locally
+## Run demo locally
 
 To run this demo locally, start by cloning this repo locally and navigate to the repo's directory. Next, you can either:
 
@@ -54,7 +55,7 @@ npm run start
 
 To test this as a owner and guest, have one window open for the owner and one window open for the guest.
 
-We recommend keeping your browser console open while testing to see any errors or events while they're happening.
+We recommend keeping your browser console open while testing to see any messages, errors, or events while they're happening.
 
 ## How to use this demo
 
